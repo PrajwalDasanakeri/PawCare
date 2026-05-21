@@ -14,6 +14,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = React.useState({
     total: 0,
     pending: 0,
+    verificationPending: 0,
     customers: 0,
     pets: 0
   })
@@ -27,7 +28,7 @@ export default function AdminDashboard() {
         { count: customerCount },
         { count: petCount }
       ] = await Promise.all([
-        supabase.from('bookings').select('*, pet:pets(*), user:users(*)').order('created_at', { ascending: false }),
+        supabase.from('bookings').select('*, pet:pets(*), user:users!bookings_user_id_fkey(*)').order('created_at', { ascending: false }),
         supabase.from('users').select('*', { count: 'exact', head: true }),
         supabase.from('pets').select('*', { count: 'exact', head: true })
       ])
@@ -37,6 +38,7 @@ export default function AdminDashboard() {
       setStats({
         total: bookingsData.length,
         pending: bookingsData.filter(b => b.status === 'pending').length,
+        verificationPending: bookingsData.filter(b => b.payment_status === 'verification_pending').length,
         customers: customerCount || 0,
         pets: petCount || 0
       })
@@ -67,9 +69,11 @@ export default function AdminDashboard() {
     }
   }
 
-  const filterBookings = (status?: string) => {
-    if (!status) return bookings
-    return bookings.filter(b => b.status === status)
+  const filterBookings = (status?: string, paymentStatus?: string) => {
+    let filtered = bookings
+    if (status) filtered = filtered.filter(b => b.status === status)
+    if (paymentStatus) filtered = filtered.filter(b => b.payment_status === paymentStatus)
+    return filtered
   }
 
   return (
@@ -95,10 +99,16 @@ export default function AdminDashboard() {
           icon={Calendar} 
         />
         <StatsCard 
-          title="Pending Requests" 
-          value={stats.pending} 
+          title="Verify Payments" 
+          value={stats.verificationPending} 
           icon={Clock} 
           color="text-orange-500"
+        />
+        <StatsCard 
+          title="Pending Requests" 
+          value={stats.pending} 
+          icon={Calendar} 
+          color="text-blue-500"
         />
         <StatsCard 
           title="Total Customers" 
@@ -126,11 +136,30 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <Tabs defaultValue="pending" className="w-full">
-            <TabsList className="bg-muted/50 p-1 rounded-2xl mb-8">
-              <TabsTrigger value="pending" className="rounded-xl px-6">Pending ({stats.pending})</TabsTrigger>
-              <TabsTrigger value="confirmed" className="rounded-xl px-6">Confirmed</TabsTrigger>
-              <TabsTrigger value="all" className="rounded-xl px-6">All Bookings</TabsTrigger>
+            <TabsList className="bg-muted/50 p-1 rounded-2xl mb-8 flex-wrap h-auto">
+              <TabsTrigger value="verify" className="rounded-xl px-6 py-2">Verify Payments ({stats.verificationPending})</TabsTrigger>
+              <TabsTrigger value="pending" className="rounded-xl px-6 py-2">Pending ({stats.pending})</TabsTrigger>
+              <TabsTrigger value="confirmed" className="rounded-xl px-6 py-2">Confirmed</TabsTrigger>
+              <TabsTrigger value="all" className="rounded-xl px-6 py-2">All Bookings</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="verify" className="space-y-4">
+              {filterBookings(undefined, 'verification_pending').length > 0 ? (
+                filterBookings(undefined, 'verification_pending').map((booking) => (
+                  <BookingCard 
+                    key={booking.id} 
+                    booking={booking} 
+                    isAdmin 
+                    onAction={updateBookingStatus}
+                    onPaymentAction={fetchData}
+                  />
+                ))
+              ) : (
+                <div className="text-center py-12 bg-card rounded-3xl border border-dashed">
+                  <p className="text-muted-foreground">No payments pending verification.</p>
+                </div>
+              )}
+            </TabsContent>
 
             <TabsContent value="pending" className="space-y-4">
               {filterBookings('pending').length > 0 ? (

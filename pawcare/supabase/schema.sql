@@ -27,6 +27,16 @@ create table public.bookings (
   service text check (service in ('Grooming', 'Vet Consultation', 'Boarding', 'Training')) not null,
   booking_date timestamptz not null,
   status text default 'pending' check (status in ('pending', 'confirmed', 'completed', 'rejected')),
+  payment_status text default 'pending' check (payment_status in ('pending', 'verification_pending', 'paid', 'failed', 'rejected')),
+  payment_method text,
+  payment_amount numeric,
+  transaction_id text,
+  paid_at timestamptz,
+  utr_number text,
+  screenshot_url text,
+  verified_by uuid references public.users(id),
+  verified_at timestamptz,
+  rejection_reason text,
   notes text,
   created_at timestamptz default now()
 );
@@ -96,6 +106,9 @@ create policy "Admins can view all bookings" on public.bookings
 create policy "Admins can update any booking" on public.bookings
   for update using (public.is_admin());
 
+create policy "Users can update their own bookings" on public.bookings
+  for update using (auth.uid() = user_id);
+
 -- Policies for reviews
 create policy "Anyone can view reviews" on public.reviews
   for select using (true);
@@ -127,3 +140,21 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- Trigger for payment verification security
+create or replace function public.prevent_unauthorized_payment_verification()
+returns trigger as $$
+begin
+  if new.payment_status = 'paid' and old.payment_status is distinct from 'paid' then
+    if not public.is_admin() then
+      raise exception 'Only administrators can verify and approve payments.';
+    end if;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists enforce_payment_verification_security on public.bookings;
+create trigger enforce_payment_verification_security
+  before update on public.bookings
+  for each row execute procedure public.prevent_unauthorized_payment_verification();
