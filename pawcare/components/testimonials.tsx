@@ -55,7 +55,7 @@ export async function Testimonials() {
                     <Star key={i} className="h-4 w-4 fill-primary text-primary" />
                   ))}
                 </div>
-                <p className="text-foreground/80 italic mb-6">"{t.content}"</p>
+                <p className="text-foreground/80 italic mb-6">&quot;{t.content}&quot;</p>
                 <div className="flex items-center space-x-3 border-t border-primary/5 pt-4">
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
                     {t.author.charAt(0)}

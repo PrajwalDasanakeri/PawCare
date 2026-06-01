@@ -8,7 +8,7 @@ const detailedServices = [
   {
     id: "grooming",
     title: "Pet Grooming",
-    description: "Our professional grooming services keep your pet looking sharp and feeling healthy. We use premium, hypoallergenic products tailored to your pet's coat and skin type.",
+    description: "Our professional grooming services keep your pet looking sharp and feeling healthy. We use premium, hypoallergenic products tailored to your pet&apos;s coat and skin type.",
     icon: Scissors,
     features: ["Bathing & Drying", "Hair Trimming & Styling", "Nail Clipping", "Ear Cleaning", "De-shedding Treatment"],
     pricing: "Starts from ₹499 / session",
@@ -19,12 +19,12 @@ const detailedServices = [
   {
     id: "vet",
     title: "Vet Consultation",
-    description: "Licensed veterinarians provide thorough health checkups and personalized care plans. From vaccinations to nutritional advice, we ensure your pet's long-term wellness.",
+    description: "Licensed veterinarians provide thorough health checkups and personalized care plans. From vaccinations to nutritional advice, we ensure your pet&apos;s long-term wellness.",
     icon: Stethoscope,
     features: ["General Health Checkups", "Vaccination Programs", "Nutritional Advice", "Minor Injury Treatment", "Emergency Triage"],
     pricing: "Starts from ₹599 / session",
     duration: "30 - 60 minutes",
-    benefits: "Proactive veterinary care extends your pet's life and catches potential health problems before they become serious.",
+    benefits: "Proactive veterinary care extends your pet&apos;s life and catches potential health problems before they become serious.",
     image: "https://images.unsplash.com/photo-1628009368231-7bb7cfcb0def?q=80&w=800&auto=format&fit=crop",
   },
   {
@@ -125,7 +125,7 @@ export function ServiceDetails() {
               <div className={`absolute -bottom-10 ${index % 2 === 1 ? '-left-6' : '-right-6'} hidden xl:block w-72 bg-background p-6 rounded-3xl shadow-2xl border border-primary/5 animate-bounce-slow`}>
                 <p className="text-xs font-bold text-primary uppercase mb-2">Why it matters</p>
                 <p className="text-sm leading-relaxed italic text-muted-foreground">
-                  "{service.benefits}"
+                  &quot;{service.benefits}&quot;
                 </p>
               </div>
             </div>

@@ -5,7 +5,7 @@ import { format } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Scissors, Stethoscope, Home, GraduationCap, Calendar, User, PawPrint, Eye, CheckCircle2, XCircle, FileImage } from "lucide-react"
+import { Scissors, Stethoscope, Home, GraduationCap, Calendar, User, PawPrint, CheckCircle2, XCircle, FileImage } from "lucide-react"
 import { Booking } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -18,6 +18,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { sendBookingConfirmation } from "@/app/actions/email"
 
 const serviceIcons = {
   'Grooming': Scissors,
@@ -72,7 +73,7 @@ export function BookingCard({ booking, isAdmin, onAction, onPaymentAction }: Boo
 
     setProcessing(true)
     try {
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         payment_status: status,
       }
 
@@ -92,10 +93,29 @@ export function BookingCard({ booking, isAdmin, onAction, onPaymentAction }: Boo
       if (error) throw error
 
       toast.success(`Payment ${status} successfully`)
+      
+      // Trigger confirmation email if paid
+      if (status === 'paid' && booking.user?.email) {
+        const emailResult = await sendBookingConfirmation({
+          email: booking.user.email,
+          name: booking.user.name || "Customer",
+          service: booking.service,
+          date: booking.booking_date,
+          amount: booking.payment_amount || 0,
+          petName: booking.pet?.name || "your pet",
+          bookingId: booking.id,
+        })
+        
+        if (!emailResult.success) {
+          console.warn("Failed to send email:", emailResult.error)
+          toast.info("Payment verified, but confirmation email couldn't be sent.")
+        }
+      }
+
       setShowRejectReason(false)
       if (onPaymentAction) onPaymentAction()
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update payment status")
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to update payment status")
     } finally {
       setProcessing(false)
     }
@@ -128,7 +148,7 @@ export function BookingCard({ booking, isAdmin, onAction, onPaymentAction }: Boo
                   </div>
                   <div className="flex items-center">
                     <PawPrint className="mr-1 h-3.5 w-3.5" />
-                    {booking.pet?.pet_name || 'Unknown Pet'}
+                    {booking.pet?.name || 'Unknown Pet'}
                   </div>
                   {isAdmin && (
                     <div className="flex items-center text-primary font-medium">
@@ -197,7 +217,7 @@ export function BookingCard({ booking, isAdmin, onAction, onPaymentAction }: Boo
           </div>
           {booking.rejection_reason && (
             <div className="mt-4 p-3 bg-red-500/10 rounded-xl text-xs text-red-600 font-medium border border-red-500/20">
-              Rejected: {booking.rejection_reason}
+               Rejected: {booking.rejection_reason}
             </div>
           )}
           {booking.notes && (
@@ -216,6 +236,7 @@ export function BookingCard({ booking, isAdmin, onAction, onPaymentAction }: Boo
             <DialogDescription>Screenshot uploaded by the customer</DialogDescription>
           </DialogHeader>
           <div className="flex justify-center p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={booking.screenshot_url} 
               alt="Payment Screenshot" 

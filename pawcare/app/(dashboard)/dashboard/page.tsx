@@ -21,7 +21,7 @@ export default async function DashboardPage() {
     supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
     supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'pending'),
     supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'completed'),
-    supabase.from('pets').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+    supabase.from('pets').select('*', { count: 'exact', head: true }).eq('owner_id', user.id),
     supabase.from('bookings').select('*, pet:pets(*)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(3)
   ])
 

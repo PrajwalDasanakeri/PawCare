@@ -10,12 +10,16 @@ export interface User {
 
 export interface Pet {
   id: string;
-  user_id: string;
-  pet_name: string;
-  pet_type: string;
-  age: number;
+  owner_id: string;
+  name: string;
+  species: string;
+  breed?: string;
+  date_of_birth?: string;
+  weight_kg?: number;
   notes?: string;
+  avatar_url?: string;
   created_at: string;
+  updated_at: string;
 }
 
 export type BookingService = 'Grooming' | 'Vet Consultation' | 'Boarding' | 'Training';

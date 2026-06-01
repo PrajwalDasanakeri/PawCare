@@ -23,7 +23,7 @@ export function Footer() {
               <span className="text-xl font-bold text-primary">PawCare</span>
             </Link>
             <p className="mt-4 text-sm text-muted-foreground">
-              Providing premium care for your furry friends. Hubballi's trusted destination for grooming, vet consultations, and boarding.
+              Providing premium care for your furry friends. Hubballi&apos;s trusted destination for grooming, vet consultations, and boarding.
             </p>
             <div className="mt-6 flex space-x-4">
               {BUSINESS_INFO.socials.map((social) => (

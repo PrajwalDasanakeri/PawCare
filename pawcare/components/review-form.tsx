@@ -55,8 +55,8 @@ export function ReviewForm() {
       toast.success("Thank you for your review!")
       form.reset()
       setRating(5)
-    } catch (error: any) {
-      toast.error(error.message || "Failed to submit review")
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to submit review")
     } finally {
       setLoading(false)
     }

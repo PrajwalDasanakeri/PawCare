@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { toast } from "sonner"
-import { Loader2, Calendar as CalendarIcon, CheckCircle2, CreditCard, Banknote } from "lucide-react"
+import { Loader2, CheckCircle2, CreditCard, Banknote, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { PetForm } from "@/components/pet-form"
 
 const bookingSchema = z.object({
   pet_id: z.string().min(1, "Please select a pet"),
@@ -28,6 +29,7 @@ type BookingFormValues = z.infer<typeof bookingSchema>
 export function BookingForm() {
   const router = useRouter()
   const [loading, setLoading] = React.useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [pets, setPets] = React.useState<any[]>([])
   const [petsLoading, setPetsLoading] = React.useState(true)
   const [showPaymentModal, setShowPaymentModal] = React.useState(false)
@@ -43,17 +45,19 @@ export function BookingForm() {
     },
   })
 
-  React.useEffect(() => {
-    const fetchPets = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase.from('pets').select('*').eq('user_id', user.id)
-        setPets(data || [])
-      }
-      setPetsLoading(false)
+  const fetchPets = React.useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data } = await supabase.from('pets').select('*').eq('owner_id', user.id)
+      setPets(data || [])
     }
+    setPetsLoading(false)
+  }, [supabase])
+
+  React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPets()
-  }, [])
+  }, [fetchPets])
 
   const onSubmit = async (values: BookingFormValues) => {
     setPendingBookingData(values)
@@ -95,8 +99,8 @@ export function BookingForm() {
         toast.success("Redirecting to online payment...")
         router.push(`/payment/${data.id}`)
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to submit booking")
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to submit booking")
     } finally {
       setLoading(false)
     }
@@ -110,18 +114,6 @@ export function BookingForm() {
     )
   }
 
-  if (pets.length === 0) {
-    return (
-      <Card className="border-none shadow-lg rounded-3xl p-8 text-center bg-card">
-        <h2 className="text-xl font-bold mb-4">No pets found</h2>
-        <p className="text-muted-foreground mb-6">You need to add a pet to your profile before you can book a service.</p>
-        <Button onClick={() => router.push("/dashboard/pets")} className="rounded-xl">
-          Add a Pet
-        </Button>
-      </Card>
-    )
-  }
-
   return (
     <>
       <Card className="border-none shadow-2xl rounded-[2rem] overflow-hidden bg-card">
@@ -130,18 +122,29 @@ export function BookingForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="pet_id">Select Pet</Label>
-                <Select onValueChange={(val: any) => val && form.setValue("pet_id", val)}>
-                  <SelectTrigger className="rounded-xl h-12">
-                    <SelectValue placeholder="Choose a pet" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pets.map((pet) => (
-                      <SelectItem key={pet.id} value={pet.id}>
-                        {pet.pet_name} ({pet.pet_type})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {pets.length > 0 ? (
+                  <Select onValueChange={(val: string | null) => val && form.setValue("pet_id", val)}>
+                    <SelectTrigger className="rounded-xl h-12">
+                      <SelectValue placeholder="Choose a pet" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pets.map((pet) => (
+                        <SelectItem key={pet.id} value={pet.id}>
+                          {pet.name} ({pet.species})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <PetForm 
+                    onSuccess={fetchPets}
+                    trigger={
+                      <Button variant="outline" className="w-full h-12 rounded-xl border-dashed flex justify-start text-muted-foreground hover:text-foreground">
+                        <Plus className="w-4 h-4 mr-2" /> Add a Pet first
+                      </Button>
+                    }
+                  />
+                )}
                 {form.formState.errors.pet_id && (
                   <p className="text-xs text-red-500">{form.formState.errors.pet_id.message}</p>
                 )}
@@ -149,7 +152,7 @@ export function BookingForm() {
 
               <div className="space-y-2">
                 <Label htmlFor="service">Select Service</Label>
-                <Select onValueChange={(val: any) => val && form.setValue("service", val)} defaultValue="Grooming">
+                <Select onValueChange={(val: string | null) => val && form.setValue("service", val as BookingFormValues["service"])} defaultValue="Grooming">
                   <SelectTrigger className="rounded-xl h-12">
                     <SelectValue placeholder="Choose a service" />
                   </SelectTrigger>
@@ -186,7 +189,7 @@ export function BookingForm() {
               />
             </div>
 
-            <Button type="submit" className="w-full rounded-2xl h-14 text-lg font-bold shadow-primary-lg hover-lift" disabled={loading}>
+            <Button type="submit" className="w-full rounded-2xl h-14 text-lg font-bold shadow-primary-lg hover-lift" disabled={loading || pets.length === 0}>
               <CheckCircle2 className="mr-2 h-5 w-5" />
               Book Now
             </Button>

@@ -12,7 +12,7 @@ export default function BookPage() {
             </div>
             <h1 className="text-4xl font-extrabold tracking-tight mb-4">Book a Service</h1>
             <p className="text-xl text-muted-foreground">
-              Choose your pet and the service you need. We'll take care of the rest.
+              Choose your pet and the service you need. We&apos;ll take care of the rest.
             </p>
           </div>
           

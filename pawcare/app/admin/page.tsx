@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function AdminDashboard() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [bookings, setBookings] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
   const [stats, setStats] = React.useState({
@@ -20,7 +21,7 @@ export default function AdminDashboard() {
   })
   const supabase = createClient()
 
-  const fetchData = async () => {
+  const fetchData = React.useCallback(async () => {
     setLoading(true)
     try {
       const [
@@ -42,18 +43,19 @@ export default function AdminDashboard() {
         customers: customerCount || 0,
         pets: petCount || 0
       })
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to fetch admin data")
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase])
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
-  }, [])
+  }, [fetchData])
 
-  const updateBookingStatus = async (id: string, status: any) => {
+  const updateBookingStatus = async (id: string, status: string) => {
     try {
       const { error } = await supabase
         .from('bookings')
@@ -64,8 +66,8 @@ export default function AdminDashboard() {
       
       toast.success(`Booking ${status} successfully`)
       fetchData()
-    } catch (error: any) {
-      toast.error(error.message || "Update failed")
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Update failed")
     }
   }
 

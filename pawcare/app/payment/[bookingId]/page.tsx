@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { QRCodeCanvas } from "qrcode.react"
 import { toast } from "sonner"
-import { Loader2, CheckCircle, ShieldCheck, IndianRupee, QrCode, Upload, FileImage, AlertCircle } from "lucide-react"
+import { Loader2, CheckCircle, ShieldCheck, IndianRupee, QrCode, Upload, FileImage, AlertCircle, Clock } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -19,13 +19,24 @@ const SERVICE_PRICES: Record<string, number> = {
   'Training': 699,
 }
 
+interface PaymentBooking {
+  id: string
+  service: string
+  payment_status: string
+  utr_number?: string
+  screenshot_url?: string
+  rejection_reason?: string
+  booking_date: string
+  [key: string]: unknown
+}
+
 export default function PaymentPage() {
   const params = useParams()
   const router = useRouter()
   const bookingId = params?.bookingId as string
   const supabase = createClient()
   
-  const [booking, setBooking] = useState<any>(null)
+  const [booking, setBooking] = useState<PaymentBooking | null>(null)
   const [loading, setLoading] = useState(true)
   const [verifying, setVerifying] = useState(false)
   const [utrNumber, setUtrNumber] = useState("")
@@ -33,36 +44,53 @@ export default function PaymentPage() {
 
   useEffect(() => {
     const fetchBooking = async () => {
-      console.log("Payment Page Params:", params)
-      console.log("Extracted bookingId:", bookingId)
-
-      if (!bookingId) {
-        console.log("No bookingId available yet.")
-        return
-      }
+      if (!bookingId) return
       
-      console.log("Fetching booking with ID:", bookingId)
       const { data, error } = await supabase
         .from('bookings')
         .select('*, pet:pets(*), user:users!bookings_user_id_fkey(*)')
         .eq('id', bookingId)
         .single()
 
-      console.log("Supabase fetch result:", { data, error })
-
       if (error || !data) {
-        console.error("Fetch Error:", error)
         toast.error(`Booking not found: ${error?.message || 'Missing data'}`)
         router.push("/dashboard/bookings")
         return
       }
 
       setBooking(data)
+      if (data.payment_status === 'rejected' && data.utr_number) {
+        setUtrNumber(data.utr_number)
+      }
       setLoading(false)
     }
 
     fetchBooking()
-  }, [bookingId, router])
+
+    // Real-time subscription for booking updates
+    if (bookingId) {
+      const channel = supabase
+        .channel(`booking-${bookingId}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${bookingId}` },
+          (payload) => {
+            setBooking((prev) => prev ? ({ ...prev, ...payload.new }) : null)
+            if (payload.new.payment_status === 'paid') {
+              toast.success("Payment verified! Your booking is confirmed.")
+            } else if (payload.new.payment_status === 'rejected') {
+              toast.error("Payment was rejected. Please check details.")
+              if (payload.new.utr_number) setUtrNumber(payload.new.utr_number)
+            }
+          }
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }
+  }, [bookingId, router, supabase])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -88,6 +116,7 @@ export default function PaymentPage() {
       return
     }
 
+    if (!booking) return
     setVerifying(true)
     try {
       let screenshotUrl = booking.screenshot_url
@@ -96,7 +125,7 @@ export default function PaymentPage() {
         const fileExt = file.name.split('.').pop()
         const fileName = `${bookingId}-${Date.now()}.${fileExt}`
         
-        const { error: uploadError, data } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('payment_proofs')
           .upload(fileName, file)
 
@@ -117,22 +146,32 @@ export default function PaymentPage() {
           payment_status: 'verification_pending',
           payment_method: 'UPI',
           payment_amount: amount,
-          utr_number: utrNumber,
+          utr_number: utrNumber.trim(),
           screenshot_url: screenshotUrl
         })
         .eq('id', bookingId)
 
-      if (error) throw error
+      if (error) {
+        // Handle unique constraint violation for duplicate UTR
+        if (error.code === '23505') {
+          throw new Error("This UTR has already been submitted for another booking.")
+        }
+        throw error
+      }
 
       toast.success("Payment proof submitted successfully! Waiting for admin verification.")
-      router.push("/dashboard/bookings")
-    } catch (error: any) {
-      toast.error(error.message || "Failed to submit payment proof")
+      
+      // Update local state to show pending banner immediately
+      setBooking((prev) => prev ? ({ ...prev, payment_status: 'verification_pending', utr_number: utrNumber.trim(), screenshot_url: screenshotUrl }) : null)
+      
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to submit payment proof")
+    } finally {
       setVerifying(false)
     }
   }
 
-  if (loading) {
+  if (loading || !booking) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -156,17 +195,23 @@ export default function PaymentPage() {
           {isPaid ? (
             <CheckCircle className="h-24 w-24 text-green-500" />
           ) : (
-            <Loader2 className="h-24 w-24 text-blue-500 animate-spin" />
+            <Clock className="h-24 w-24 text-amber-500" />
           )}
         </div>
         <h1 className="text-3xl font-bold">
-          {isPaid ? "Payment Verified!" : "Verification Pending"}
+          {isPaid ? "Payment Verified! 🎉" : "Verification Pending"}
         </h1>
-        <p className="text-muted-foreground text-lg">
-          {isPaid 
-            ? "Your payment has been successfully verified by our team."
-            : "Your payment proof has been submitted. Our team will verify it shortly."}
-        </p>
+        
+        {isPaid ? (
+          <div className="bg-green-50 text-green-700 p-4 rounded-xl border border-green-200 font-medium">
+            Payment verified! Your booking is confirmed.
+          </div>
+        ) : (
+          <div className="bg-amber-50 text-amber-700 p-4 rounded-xl border border-amber-200 font-medium">
+            Your payment is under review. This usually takes a few minutes.
+          </div>
+        )}
+
         <Button onClick={() => router.push('/dashboard/bookings')} className="rounded-xl mt-8">
           Return to Dashboard
         </Button>
@@ -182,7 +227,7 @@ export default function PaymentPage() {
       </div>
 
       {isRejected && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-600 p-6 rounded-2xl mb-8 flex items-start gap-4">
+        <div className="bg-red-500/10 border border-red-500/20 text-red-700 p-6 rounded-2xl mb-8 flex items-start gap-4">
           <AlertCircle className="w-6 h-6 mt-0.5 shrink-0" />
           <div>
             <h3 className="font-bold text-lg mb-1">Payment Verification Rejected</h3>

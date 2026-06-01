@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { ShieldCheck, Calendar, Users, PawPrint, Settings } from "lucide-react"
+import { ShieldCheck, Calendar } from "lucide-react"
 import Link from "next/link"
 
 const adminLinks = [

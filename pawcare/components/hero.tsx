@@ -1,3 +1,4 @@
+import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Star, PawPrint } from "lucide-react"
@@ -41,9 +42,11 @@ export function Hero() {
               <div className="flex -space-x-2">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="h-8 w-8 rounded-full border-2 border-background bg-muted overflow-hidden">
-                    <img 
+                    <Image 
                       src={`https://i.pravatar.cc/100?img=${i + 10}`} 
                       alt="User avatar" 
+                      width={32}
+                      height={32}
                       className="h-full w-full object-cover"
                     />
                   </div>
@@ -54,10 +57,12 @@ export function Hero() {
           </div>
           <div className="mt-12 relative sm:max-w-lg sm:mx-auto lg:mt-0 lg:max-w-none lg:mx-0 lg:col-span-6 lg:flex lg:items-center">
             <div className="relative mx-auto w-full rounded-3xl shadow-2xl overflow-hidden hover-lift duration-500">
-              <img
+              <Image
                 className="w-full object-cover aspect-[4/3]"
                 src="https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?q=80&w=1000&auto=format&fit=crop"
                 alt="Happy Golden Retriever being groomed"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
             </div>

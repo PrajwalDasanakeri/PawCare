@@ -11,12 +11,26 @@ create table public.users (
 );
 
 create table public.pets (
-  id uuid default uuid_generate_v4() primary key,
-  user_id uuid references public.users(id) on delete cascade not null,
-  pet_name text not null,
-  pet_type text not null,
-  age int not null,
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references auth.users(id) on delete cascade not null,
+  name text not null,
+  species text not null,
+  breed text,
+  date_of_birth date,
+  weight_kg numeric,
+  avatar_url text,
   notes text,
+  created_at timestamptz default now()
+);
+
+create table public.medical_records (
+  id uuid primary key default gen_random_uuid(),
+  pet_id uuid references public.pets(id) on delete cascade not null,
+  record_date date not null,
+  title text not null,
+  description text,
+  vet_name text,
+  attachments text[],
   created_at timestamptz default now()
 );
 
@@ -32,7 +46,7 @@ create table public.bookings (
   payment_amount numeric,
   transaction_id text,
   paid_at timestamptz,
-  utr_number text,
+  utr_number text unique,
   screenshot_url text,
   verified_by uuid references public.users(id),
   verified_at timestamptz,
@@ -52,6 +66,7 @@ create table public.reviews (
 -- Enable RLS
 alter table public.users enable row level security;
 alter table public.pets enable row level security;
+alter table public.medical_records enable row level security;
 alter table public.bookings enable row level security;
 alter table public.reviews enable row level security;
 
@@ -79,18 +94,54 @@ create policy "Admins can view all profiles" on public.users
 
 -- Policies for pets
 create policy "Users can view their own pets" on public.pets
-  for select using (auth.uid() = user_id);
+  for select using (auth.uid() = owner_id);
 
 create policy "Users can insert their own pets" on public.pets
-  for insert with check (auth.uid() = user_id);
+  for insert with check (auth.uid() = owner_id);
 
 create policy "Users can update their own pets" on public.pets
-  for update using (auth.uid() = user_id);
+  for update using (auth.uid() = owner_id);
 
 create policy "Users can delete their own pets" on public.pets
-  for delete using (auth.uid() = user_id);
+  for delete using (auth.uid() = owner_id);
 
 create policy "Admins can view all pets" on public.pets
+  for select using (public.is_admin());
+
+-- Policies for medical_records
+create policy "Users can view their pets' medical records" on public.medical_records
+  for select using (
+    exists (
+      select 1 from public.pets
+      where pets.id = medical_records.pet_id and pets.owner_id = auth.uid()
+    )
+  );
+
+create policy "Users can insert their pets' medical records" on public.medical_records
+  for insert with check (
+    exists (
+      select 1 from public.pets
+      where pets.id = pet_id and pets.owner_id = auth.uid()
+    )
+  );
+
+create policy "Users can update their pets' medical records" on public.medical_records
+  for update using (
+    exists (
+      select 1 from public.pets
+      where pets.id = medical_records.pet_id and pets.owner_id = auth.uid()
+    )
+  );
+
+create policy "Users can delete their pets' medical records" on public.medical_records
+  for delete using (
+    exists (
+      select 1 from public.pets
+      where pets.id = medical_records.pet_id and pets.owner_id = auth.uid()
+    )
+  );
+
+create policy "Admins can view all medical records" on public.medical_records
   for select using (public.is_admin());
 
 -- Policies for bookings
